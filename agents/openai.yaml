@@ -1,0 +1,7 @@
+interface:
+  display_name: "Smart Commit"
+  short_description: "Plan and create safe, atomic Git commits"
+  default_prompt: "Use $smart-commit to inspect, group, and commit my changes with explicit approval."
+
+policy:
+  allow_implicit_invocation: true
