@@ -1,6 +1,6 @@
 # Commit conventions
 
-Use this reference after logical groups are known. Repository-specific, explicit rules take precedence. Safety and approval gates do not.
+Use this reference after logical groups are known. Repository-specific, explicit rules take precedence. Safety and the approval gate do not.
 
 ## Message shape
 

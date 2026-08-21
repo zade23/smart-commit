@@ -1,6 +1,6 @@
 ---
 name: smart-commit
-description: Analyze local Git changes, flag risky files, group work into atomic Conventional Commits, generate Chinese or English messages, and create only the commits the user explicitly approves. Use when the user asks to plan, organize, or execute Git commits. Do not use for pushing, rebasing, amending, or rewriting history.
+description: Analyze local Git changes, flag risky files, group work into atomic Conventional Commits, generate Chinese or English messages, and create them only after one consolidated execution approval. Use when the user asks to plan, organize, or execute Git commits. Do not use for pushing, rebasing, amending, or rewriting history.
 ---
 
 # Smart Commit
@@ -22,14 +22,14 @@ $smart-commit --lang=en
 Also accept an unambiguous natural-language request for Chinese or English. The only formal v1 option is `--lang zh|en`.
 
 - Reject unknown options, missing values, repeated language options, and conflicting flag/natural-language choices. Show the valid forms and do not mutate Git.
-- Without a language choice, wait until the grouping plan is approved, then ask Chinese or English.
+- Without a language choice, ask for Chinese or English before rendering the consolidated execution preview. Language selection is not execution approval.
 - Honor natural-language requests to analyze or preview without committing. Do not invent a `--dry-run` option.
-- Do not accept an option that bypasses either approval gate.
+- Do not accept an option that bypasses the approval gate.
 
 ## Non-negotiable safeguards
 
-- Treat the user's initial request as permission to inspect and plan, not as final approval to stage or commit.
-- Do not stage, unstage, commit, or otherwise change the index before the final execution approval.
+- Treat the user's initial request as permission to inspect and plan, not as the consolidated execution approval to stage or commit.
+- Do not stage, unstage, commit, or otherwise change the index before that approval.
 - Never use `git add -A`, `git add .`, `git commit -a`, `--no-verify`, `git reset --hard`, or any command that discards working-tree content.
 - Never push, stash, amend, rebase, rewrite history, edit source files, or modify `.gitignore` as part of this skill.
 - Keep unrelated user changes intact. Do not clean the worktree or include a file merely because it is modified.
@@ -43,7 +43,7 @@ Perform a read-only preflight:
 2. Inspect `git status` in a machine-readable form with all untracked files expanded rather than collapsed to directory names. Detect unmerged paths and merge, rebase, cherry-pick, or revert state. Stop on conflicts or an in-progress history operation. Warn and ask before proceeding from detached HEAD, a submodule, or a nested repository.
 3. Search from the working directory to the repository root for applicable `AGENTS.md`, `CONTRIBUTING*`, commitlint/commitizen configuration, commit templates, hook configuration, and documented validation commands.
 4. Inspect a small sample of recent commit subjects only to infer stable scope names and local style. History is advisory, never stronger than explicit repository rules.
-5. Explicit repository rules override the fallback message rules. If they conflict with the approval gates, content safety, or logical atomicity, stop and ask the user.
+5. Explicit repository rules override the fallback message rules. If they conflict with the approval gate, content safety, or logical atomicity, stop and ask the user.
 
 If the repository has no changes, report that and stop. Do not create an empty commit.
 
@@ -53,7 +53,7 @@ Separate staged, unstaged, untracked, and ignored changes.
 
 - If only staged changes exist, analyze only the staged diff.
 - If no staged changes exist, analyze tracked working-tree changes and non-ignored untracked files.
-- If staged and unstaged/untracked changes coexist, show the two sets separately and ask whether to process only the current staged selection or reorganize all visible non-ignored changes. Preserve the current index until final approval.
+- If staged and unstaged/untracked changes coexist, show the two sets separately. Unless the user clearly requested reorganizing all visible non-ignored changes, conservatively plan only the current staged selection and list the rest outside the batch. The user can revise this boundary from the consolidated preview. Preserve the current index until execution approval.
 - Never force-add ignored files. Mention an ignored file only when the user explicitly asks about it, and keep it outside this workflow.
 
 Record the selected source boundary. A staged-only selection must never absorb unstaged hunks from the same file later.
@@ -66,13 +66,13 @@ Hard-risk candidates include likely private keys, tokens, credential files, real
 
 - Exclude each hard-risk path by default.
 - Report only its path and risk category. Never echo a suspected secret or a matching line.
-- Require an explicit per-path decision before including it in the later plan.
+- Never include a hard-risk path in an executable preview without an explicit per-path instruction from the user. Otherwise exclude it by default and show that decision in the consolidated preview.
 - When searching content, use redacted or file-name-only output rather than commands that print matches.
 
 Soft-risk candidates include generated output, caches, logs, editor state, vendored dependency trees, minified/binary artifacts, and unexpectedly large files.
 
 - Warn with the path, reason, and available size/type information.
-- Let the user keep or exclude each item during the grouping review.
+- Propose whether to keep or exclude each item and show the decision in the consolidated preview so the user can approve or revise it there.
 
 Apply screening to tracked files too; `.gitignore` does not protect content already tracked. Describe the result as heuristic, not proof that the changes contain no secrets.
 
@@ -89,7 +89,7 @@ Read the selected diffs deeply enough to understand intent. Group by independent
 
 Read [references/commit-conventions.md](references/commit-conventions.md) when assigning types/scopes or writing messages.
 
-Present the first approval gate as a numbered plan containing:
+Carry a numbered grouping plan forward into the consolidated execution preview. For each group record:
 
 - intent and rationale;
 - proposed `type` and optional `scope`;
@@ -98,25 +98,33 @@ Present the first approval gate as a numbered plan containing:
 - hard/soft-risk decisions and excluded paths;
 - changes intentionally left outside the batch.
 
-Ask the user to approve or revise the grouping. This approval is still non-mutating.
+Do not request separate grouping approval. If ambiguity prevents a safe plan, ask a focused clarifying question; the answer resolves the plan but is not execution approval.
 
-## 5. Choose language, render messages, and check the work
+## 5. Render one complete preview and request one approval
 
-After grouping approval:
+After the grouping plan is internally complete:
 
-1. Resolve the message language from the invocation or ask the user to choose Chinese or English.
+1. Resolve the message language from the invocation or ask the user to choose Chinese or English before continuing.
 2. Render the exact header, optional body, and optional footers for every group.
-3. Discover relevant fast, non-rewriting checks from repository instructions and project configuration. Run focused checks when practical. Explain and ask before long-running checks. Never run a formatter in write mode.
+3. Discover relevant non-rewriting checks from repository instructions and project configuration. Run focused checks when practical. Run long checks only when the user already requested them or repository rules require them; otherwise list them as not run with the reason. Never run a formatter in write mode.
 4. State honestly whether checks cover the complete worktree or an individual planned commit; do not claim isolated-commit validation when unstaged changes were present.
-5. If a required or relevant check fails, show the failure and pause. Proceed only after the user explicitly decides how to handle it; hooks may still reject the commit.
+5. If a required or relevant check fails, show it prominently in the consolidated preview. Execute only when the single approval explicitly authorizes proceeding despite that named failure; hooks may still reject the commit. If the user requests a fix or another resolution instead, rebuild the preview afterward.
 
-Present a final batch preview with exact messages, exact file/hunk membership, check results, exclusions, and order. Ask for one unambiguous approval to execute the entire batch. Any revision invalidates the preview and requires a fresh final approval.
+Present one consolidated execution preview containing:
 
-For analysis-only requests, stop after the preview and return a zero-commit summary.
+- every numbered group's intent, rationale, `type`, optional scope, exact message, complete file/hunk membership, and dependency order;
+- the selected source boundary;
+- hard/soft-risk decisions, excluded paths, and changes left outside the batch;
+- checks run, results, and coverage limitations;
+- an explicit statement that approving this preview authorizes staging and committing the entire batch exactly as shown.
+
+Ask for one unambiguous approval to execute the entire batch. This is the workflow's only approval gate; do not ask for separate grouping and execution approvals. A revision invalidates the preview, so rebuild it and ask once for approval of the revised complete preview.
+
+For analysis-only requests, stop after the preview without asking for execution approval and return a zero-commit summary.
 
 ## 6. Execute the approved batch transactionally
 
-Only after final approval:
+Only after the consolidated execution approval:
 
 1. Capture the baseline HEAD (including an unborn-branch case), machine-readable status, staged path list, and binary staged diff in a temporary location outside the repository. Do not expose diff contents in the summary.
 2. Prepare only the first approved group in the index using explicit paths or verified patch staging. Preserve the working tree.
