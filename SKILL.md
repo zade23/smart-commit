@@ -1,6 +1,6 @@
 ---
 name: smart-commit
-description: Analyze local Git changes, flag risky files, group work into atomic Conventional Commits, generate Chinese or English messages, and create them only after one consolidated execution approval. Use when the user asks to plan, organize, or execute Git commits. Do not use for pushing, rebasing, amending, or rewriting history.
+description: Analyze local Git changes, flag risky files, group work into atomic Conventional Commits, generate Chinese or English messages, and create them after one consolidated approval or an explicit --yes authorization. Use when the user asks to plan, organize, or execute Git commits. Do not use for pushing, rebasing, amending, or rewriting history.
 ---
 
 # Smart Commit
@@ -17,19 +17,26 @@ $smart-commit --lang zh
 $smart-commit --lang=zh
 $smart-commit --lang en
 $smart-commit --lang=en
+$smart-commit --yes
+$smart-commit --yes --lang zh
+$smart-commit --lang=en --yes
 ```
 
-Also accept an unambiguous natural-language request for Chinese or English. The only formal v1 option is `--lang zh|en`.
+Also accept an unambiguous natural-language request for Chinese or English. The formal options are `--lang zh|en` and `--yes`; when combined, they may appear in either order.
 
-- Reject unknown options, missing values, repeated language options, and conflicting flag/natural-language choices. Show the valid forms and do not mutate Git.
-- Without a language choice, ask for Chinese or English before rendering the consolidated execution preview. Language selection is not execution approval.
+- Reject unknown options, missing values, repeated options, and conflicting flag/natural-language choices. Show the valid forms and do not mutate Git.
+- `--yes` is explicit no-prompt execution authorization for the eligible batch produced by this invocation. It skips the consolidated approval question, not analysis, risk screening, checks, transactional verification, hooks, or the final audit.
+- Without `--yes`, ask for Chinese or English before rendering the consolidated execution preview when the language is still unresolved. Language selection is not execution approval.
+- With `--yes` and no language choice, do not ask. Prefer an unambiguous natural-language request, then stable recent repository style, then English as the fallback.
 - Honor natural-language requests to analyze or preview without committing. Do not invent a `--dry-run` option.
-- Do not accept an option that bypasses the approval gate.
+- Reject `--yes` when combined with an analysis-only or preview-only request because the requested outcomes conflict.
+- Do not invent aliases such as `-y`, `--force`, `--no-confirm`, or any option that bypasses hooks or safety checks.
 
 ## Non-negotiable safeguards
 
-- Treat the user's initial request as permission to inspect and plan, not as the consolidated execution approval to stage or commit.
-- Do not stage, unstage, commit, or otherwise change the index before that approval.
+- Treat the user's initial request as permission to inspect and plan, not as execution authorization, unless the invocation includes a valid `--yes`.
+- Do not stage, unstage, commit, or otherwise change the index before consolidated approval or valid `--yes` authorization.
+- `--yes` authorizes only the exact eligible batch derived from the current invocation. It does not broaden the candidate set, include a hard-risk path without an explicit per-path instruction, accept failed checks, resolve ambiguity, or authorize any otherwise forbidden Git operation.
 - Never use `git add -A`, `git add .`, `git commit -a`, `--no-verify`, `git reset --hard`, or any command that discards working-tree content.
 - Never push, stash, amend, rebase, rewrite history, edit source files, or modify `.gitignore` as part of this skill.
 - Keep unrelated user changes intact. Do not clean the worktree or include a file merely because it is modified.
@@ -40,7 +47,7 @@ Also accept an unambiguous natural-language request for Chinese or English. The 
 Perform a read-only preflight:
 
 1. Confirm the current directory belongs to one Git worktree and identify its root, Git directory, branch, HEAD, and any superproject.
-2. Inspect `git status` in a machine-readable form with all untracked files expanded rather than collapsed to directory names. Detect unmerged paths and merge, rebase, cherry-pick, or revert state. Stop on conflicts or an in-progress history operation. Warn and ask before proceeding from detached HEAD, a submodule, or a nested repository.
+2. Inspect `git status` in a machine-readable form with all untracked files expanded rather than collapsed to directory names. Detect unmerged paths and merge, rebase, cherry-pick, or revert state. Stop on conflicts or an in-progress history operation. Warn and ask before proceeding from detached HEAD, a submodule, or a nested repository; in `--yes` mode, stop and report instead of asking.
 3. Search from the working directory to the repository root for applicable `AGENTS.md`, `CONTRIBUTING*`, commitlint/commitizen configuration, commit templates, hook configuration, and documented validation commands.
 4. Inspect a small sample of recent commit subjects only to infer stable scope names and local style. History is advisory, never stronger than explicit repository rules.
 5. Explicit repository rules override the fallback message rules. If they conflict with the approval gate, content safety, or logical atomicity, stop and ask the user.
@@ -73,6 +80,7 @@ Soft-risk candidates include generated output, caches, logs, editor state, vendo
 
 - Warn with the path, reason, and available size/type information.
 - Propose whether to keep or exclude each item and show the decision in the consolidated preview so the user can approve or revise it there.
+- In `--yes` mode, exclude a soft-risk item unless the invocation explicitly includes that path or repository rules clearly require it.
 
 Apply screening to tracked files too; `.gitignore` does not protect content already tracked. Describe the result as heuristic, not proof that the changes contain no secrets.
 
@@ -98,17 +106,17 @@ Carry a numbered grouping plan forward into the consolidated execution preview. 
 - hard/soft-risk decisions and excluded paths;
 - changes intentionally left outside the batch.
 
-Do not request separate grouping approval. If ambiguity prevents a safe plan, ask a focused clarifying question; the answer resolves the plan but is not execution approval.
+Do not request separate grouping approval. If ambiguity prevents a safe plan, ask a focused clarifying question; the answer resolves the plan but is not execution approval. In `--yes` mode, stop with zero commits and report the ambiguity instead of asking.
 
-## 5. Render one complete preview and request one approval
+## 5. Render one complete preview and obtain execution authorization
 
 After the grouping plan is internally complete:
 
-1. Resolve the message language from the invocation or ask the user to choose Chinese or English before continuing.
+1. Resolve the message language from the invocation. Without `--yes`, ask the user to choose Chinese or English when still unresolved. With `--yes`, apply its non-interactive language fallback.
 2. Render the exact header, optional body, and optional footers for every group.
 3. Discover relevant non-rewriting checks from repository instructions and project configuration. Run focused checks when practical. Run long checks only when the user already requested them or repository rules require them; otherwise list them as not run with the reason. Never run a formatter in write mode.
 4. State honestly whether checks cover the complete worktree or an individual planned commit; do not claim isolated-commit validation when unstaged changes were present.
-5. If a required or relevant check fails, show it prominently in the consolidated preview. Execute only when the single approval explicitly authorizes proceeding despite that named failure; hooks may still reject the commit. If the user requests a fix or another resolution instead, rebuild the preview afterward.
+5. If a required or relevant check fails, show it prominently in the consolidated preview. In normal mode, execute only when the single approval explicitly authorizes proceeding despite that named failure; hooks may still reject the commit. In `--yes` mode, stop with zero commits and report the failure instead of asking or treating prior authorization as acceptance of an unknown failure.
 
 Present one consolidated execution preview containing:
 
@@ -116,24 +124,26 @@ Present one consolidated execution preview containing:
 - the selected source boundary;
 - hard/soft-risk decisions, excluded paths, and changes left outside the batch;
 - checks run, results, and coverage limitations;
-- an explicit statement that approving this preview authorizes staging and committing the entire batch exactly as shown.
+- an explicit authorization statement: in normal mode, approval authorizes staging and committing the batch exactly as shown; in `--yes` mode, the invocation has already authorized that exact batch.
 
-Ask for one unambiguous approval to execute the entire batch. This is the workflow's only approval gate; do not ask for separate grouping and execution approvals. A revision invalidates the preview, so rebuild it and ask once for approval of the revised complete preview.
+In normal mode, ask for one unambiguous approval to execute the entire batch. This is the workflow's only approval gate; do not ask for separate grouping and execution approvals. A revision invalidates the preview, so rebuild it and ask once for approval of the revised complete preview.
+
+In `--yes` mode, present the same complete preview as a non-blocking progress update, then continue directly to execution without asking or pausing. The flag authorizes only that exact preview. If the safe preview cannot be completed, return a zero-commit summary rather than seeking input.
 
 For analysis-only requests, stop after the preview without asking for execution approval and return a zero-commit summary.
 
-## 6. Execute the approved batch transactionally
+## 6. Execute the authorized batch transactionally
 
-Only after the consolidated execution approval:
+Only after consolidated execution approval or a valid `--yes` authorization:
 
 1. Capture the baseline HEAD (including an unborn-branch case), machine-readable status, staged path list, and binary staged diff in a temporary location outside the repository. Do not expose diff contents in the summary.
-2. Prepare only the first approved group in the index using explicit paths or verified patch staging. Preserve the working tree.
+2. Prepare only the first authorized group in the index using explicit paths or verified patch staging. Preserve the working tree.
    - For staged-only processing, construct groups only from the original cached diff.
    - If a path has both staged and unstaged hunks, never use whole-file `git add` in staged-only mode.
    - Use index-only unstage operations compatible with the repository's HEAD state. If safe restoration cannot be guaranteed, stop before changing the index.
-3. Compare the complete staged diff with the approved group, not just its path list. Stop on any extra, missing, or altered hunk.
-4. Write the approved message to a temporary file outside the repository and commit with that file so multiline messages and characters are preserved. Honor signing configuration and all hooks.
-5. Record the new SHA and verify the created commit's diff and message against the approved preview. Re-read status and detect hook-created or otherwise unexpected changes.
+3. Compare the complete staged diff with the authorized group, not just its path list. Stop on any extra, missing, or altered hunk.
+4. Write the authorized message to a temporary file outside the repository and commit with that file so multiline messages and characters are preserved. Honor signing configuration and all hooks.
+5. Record the new SHA and verify the created commit's diff and message against the authorized preview. Re-read status and detect hook-created or otherwise unexpected changes.
 6. Continue with the next group only when the previous commit and current repository state match expectations.
 
 If a failure happens before any commit succeeds, restore the original index from the captured baseline when it is safe and verifiable. Never change the working tree to perform restoration.
@@ -145,6 +155,7 @@ If one or more commits succeeded, do not automatically roll them back, amend the
 For every outcome, report:
 
 - whether the result is success, partial success, or zero commits;
+- whether execution used consolidated approval or `--yes` authorization;
 - each created SHA and exact subject, with its paths/hunks;
 - checks run and their results;
 - excluded risky files and the reason category, without sensitive values;
