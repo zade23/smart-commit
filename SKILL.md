@@ -67,7 +67,7 @@ Record the selected source boundary. A staged-only selection must never absorb u
 
 ## 3. Screen risky candidates
 
-Screen paths, file kinds, sizes, and relevant diff content before grouping. Prefer repository-provided secret scanners or pre-commit checks when available.
+Screen paths, file kinds, sizes, and relevant diff content before grouping. Prefer repository-provided secret scanners or pre-commit checks when available. For exported prose or configuration, check embedded author credits and bylines during initial screening.
 
 Hard-risk candidates include likely private keys, tokens, credential files, real `.env` files, password/secret files, service-account credentials, and machine-local sensitive configuration.
 
@@ -117,6 +117,8 @@ After the grouping plan is internally complete:
 3. Discover relevant non-rewriting checks from repository instructions and project configuration. Run focused checks when practical. Run long checks only when the user already requested them or repository rules require them; otherwise list them as not run with the reason. Never run a formatter in write mode.
 4. State honestly whether checks cover the complete worktree or an individual planned commit; do not claim isolated-commit validation when unstaged changes were present.
 5. If a required or relevant check fails, show it prominently in the consolidated preview. In normal mode, execute only when the single approval explicitly authorizes proceeding despite that named failure; hooks may still reject the commit. In `--yes` mode, stop with zero commits and report the failure instead of asking or treating prior authorization as acceptance of an unknown failure.
+
+When the user also requests a push, include a read-only push preview before staging. Resolve the intended remote and branch, read the actual remote tip, and list pre-existing local commits that would be pushed with the planned batch. Include any such commits in the same scope review and verify the remote tip and outgoing range again before the separate push action.
 
 Present one consolidated execution preview containing:
 
